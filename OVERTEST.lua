@@ -11,8 +11,8 @@ local Window = Library.CreateLib("AxeeHUB | Unrealesed v.0.0.1", "Midnight")
 -- ===============================
 -- Tab: Main Kaitun Controls
 -- ===============================
-local MainTab = Window:NewTab("Main")
-local MainSection = MainTab:NewSection("Kaitun Controls")
+local Main = Window:NewTab("Main")
+local Kaitun = Main:NewSection("Kaitun Controls")
 
 -- Global State
 getgenv().AutoFishing = false
@@ -26,15 +26,15 @@ local Coins = leaderstats:WaitForChild("Coins")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = ReplicatedStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
 local RemoteReferences = {
-	UpdateAutoFishing = Net:WaitForChild("RF/UpdateAutoFishingState"),
-	RodRemote = Net:WaitForChild("RF/ChargeFishingRod"),
-	StartMini = Net:WaitForChild("RF/RequestFishingMinigameStarted"),
-	FinishFish = Net:WaitForChild("RE/FishingCompleted"),
-	FishCaught = Net:WaitForChild("RE/FishCaught") or Net:WaitForChild("RF/FishCaught"),
-	EquipRemote = Net:WaitForChild("RE/EquipToolFromHotbar"),
-	SellRemote = Net:WaitForChild("RF/SellAllItems"),
-	Teleport = ReplicatedStorage:WaitForChild("Teleport"),
-	CompleteQuest = ReplicatedStorage:WaitForChild("CompleteQuest")
+   	UpdateAutoFishing = Net:WaitForChild("RF/UpdateAutoFishingState"),
+   	RodRemote = Net:WaitForChild("RF/ChargeFishingRod"),
+   	StartMini = Net:WaitForChild("RF/RequestFishingMinigameStarted"),
+   	FinishFish = Net:WaitForChild("RE/FishingCompleted"),
+   	FishCaught = Net:WaitForChild("RE/FishCaught") or Net:WaitForChild("RF/FishCaught"),
+   	EquipRemote = Net:WaitForChild("RE/EquipToolFromHotbar"),
+   	SellRemote = Net:WaitForChild("RF/SellAllItems"),
+	   Teleport = ReplicatedStorage:WaitForChild("Teleport"),
+   	CompleteQuest = ReplicatedStorage:WaitForChild("CompleteQuest")
 }
 
 -- Locations
@@ -90,9 +90,9 @@ end
 -- ===============================
 -- KAVO UI: Progress Labels & Textboxes
 -- ===============================
-local ProgressLabel = MainSection:NewLabel("Quest Progress: 0 / 300")
-local CoinTextbox = MainSection:NewTextBox("Coins", "Current Coins", function(txt) end)
-local QuestPhaseTextbox = MainSection:NewTextBox("Quest Phase", "Current Phase", function(txt) end)
+local ProgressLabel = Kaitun:NewLabel("Quest Progress: 0 / 300")
+local CoinTextbox = Kaitun:NewTextBox("Coins", "Current Coins", function(txt) end)
+local QuestPhaseTextbox = Kaitun:NewTextBox("Quest Phase", "Current Phase", function(txt) end)
 
 -- ===============================
 -- FishCaught Event Handler
@@ -153,7 +153,7 @@ end)
 -- ===============================
 -- KAVO UI Buttons
 -- ===============================
-MainSection:NewButton("Start Kaitun", "Mulai auto fishing & quest", function()
+Kaitun:NewButton("Start Kaitun", "Mulai auto fishing & quest", function()
 	StartAutoFishing()
 	Teleport(Locations.KohanaVolcano)
 	EquipRod("Starter Rod")
@@ -163,7 +163,7 @@ MainSection:NewButton("Start Kaitun", "Mulai auto fishing & quest", function()
 	QuestPhaseTextbox:UpdateTextbox("Phase: Buy Midnight Rod")
 end)
 
-MainSection:NewButton("Stop Kaitun", "Hentikan auto fishing", function()
+Kaitun:NewButton("Stop Kaitun", "Hentikan auto fishing", function()
 	StopAutoFishing()
 	CurrentQuest = "Stopped"
 	CoinTextbox:UpdateTextbox("Coins: "..Coins.Value)
@@ -173,8 +173,8 @@ end)
 -- ===============================
 -- Tab: Auto Sell
 -- ===============================
-local AutoSellTab = Window:NewTab("Auto Sell")
-local AutoSellSection = AutoSellTab:NewSection("Auto Sell Controls")
+local AutoSell = Window:NewTab("Auto Sell")
+local AutoSellSection = AutoSell:NewSection("Auto Sell Controls")
 
 getgenv().AutoSellEnabled = false
 
