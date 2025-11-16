@@ -1,7 +1,7 @@
 --============================================================--
 --  A X E E   K A I T U N   S Y S T E M
 --  Wind UI Version (Full Automation)
---  Developer Mode – 100% based on your remotes & CFrames
+--  Developer Mode – 100% BASED ON YOUR REMOTES
 --============================================================--
 
 -----------------------------
@@ -21,7 +21,7 @@ local Window = WindUI:CreateWindow({
 })
 
 -----------------------------------------------------
--- REMOTE REFERENCES (EXACT FROM YOUR PROVIDED LIST)
+-- REMOTE REFERENCES
 -----------------------------------------------------
 local RS = game:GetService("ReplicatedStorage")
 local Net = RS.Packages._Index["sleitnick_net@0.2.0"].net
@@ -38,7 +38,7 @@ local Remote = {
 }
 
 -----------------------------------------------------
--- CFRAME TELEPORTS (FROM YOUR INFO)
+-- CFRAME TELEPORTS (YOUR EXACT CFRAMES)
 -----------------------------------------------------
 local TP = {
     Volcano  = CFrame.new(-546.500671, 16.2349777, 115.35006,
@@ -63,80 +63,80 @@ local function Teleport(cf)
 end
 
 -----------------------------------------------------
--- AUTO FISHING FUNCTION (REMOTE-BASED)
+-- FISHING FUNCTION (BASED ON YOUR REMOTES)
 -----------------------------------------------------
 local function FishOnce()
-    -- Charge Rod
     Remote.ChargeRod:InvokeServer()
     task.wait(0.2)
 
-    -- Start Minigame (args mimic your example)
     Remote.StartMini:InvokeServer(-1.23318, 0.391523, 1763312000.217342)
     task.wait(0.5)
 
-    -- Complete
     Remote.FinishFish:FireServer()
 end
 
 -----------------------------------------------------
--- KAITUN MAIN LOGIC
+-- KAITUN SYSTEM
 -----------------------------------------------------
 local KaitunRunning = false
 
 local function StartKaitun()
-    if KaitunRunning then return end
     KaitunRunning = true
 
-    -- STEP 1: Go Volcano
+    ----------------------------  
+    -- STEP 1: FARM UNTIL 50k  
+    ----------------------------
     Teleport(TP.Volcano)
 
-    -- Auto farm until 50k
     while KaitunRunning and Player.leaderstats.Coins.Value < 50000 do
         FishOnce()
         task.wait(0.3)
     end
 
-    -- STEP 2: Buy Midnight Rod (ID 80)
-    Remote.PurchaseRod:InvokeServer(80)
+    ----------------------------  
+    -- STEP 2: BUY MIDNIGHT  
+    ----------------------------
+    Remote.PurchaseRod:InvokeServer(80)  -- purchase id
     task.wait(0.2)
-
-    -- Equip Midnight Rod (UUID)
     Remote.EquipItem:FireServer("6d977940-10bd-49e4-9dfb-aca505d7805e", "Fishing Rods")
 
-    -- STEP 3: Teleport to Treasure
+    ----------------------------
+    -- STEP 3: TREASURE → 300 RARE/EPIC
+    ----------------------------
     Teleport(TP.Treasure)
 
-    -- Catch 300 Rare/Epic
     _G.CatchRareTreasureRoom = _G.CatchRareTreasureRoom or 0
     while KaitunRunning and _G.CatchRareTreasureRoom < 300 do
         FishOnce()
         task.wait(0.3)
     end
 
-    -- STEP 4: Farm until 3M coins
+    ----------------------------
+    -- STEP 4: FARM UNTIL 3,000,000
+    ----------------------------
     while KaitunRunning and Player.leaderstats.Coins.Value < 3000000 do
         FishOnce()
         task.wait(0.3)
     end
 
-    -- STEP 5: Buy Ares Rod (ID 126)
+    ----------------------------
+    -- STEP 5: BUY ARES
+    ----------------------------
     Remote.PurchaseRod:InvokeServer(126)
     task.wait(0.2)
-
-    -- Equip Ares Rod (UUID)
     Remote.EquipItem:FireServer("a8e8eb6c-ed6a-4e57-a70c-8e20d1ff7fe5", "Fishing Rods")
 
-    -- STEP 6: Teleport to Sisyphus
+    ----------------------------
+    -- STEP 6: SISYPHUS → MYTHIC + SECRET
+    ----------------------------
     Teleport(TP.Sisyphus)
 
-    -- Catch 3 Mythic
     _G.CatchMythicSisy = _G.CatchMythicSisy or 0
     while KaitunRunning and _G.CatchMythicSisy < 3 do
         FishOnce()
         task.wait(0.3)
     end
 
-    -- Catch 1 Secret
     _G.CatchSecretSisy = _G.CatchSecretSisy or 0
     while KaitunRunning and _G.CatchSecretSisy < 1 do
         FishOnce()
@@ -151,7 +151,7 @@ local function StopKaitun()
 end
 
 -----------------------------------------------------
--- SELL ALL LOOP (EVERY 5 SEC)
+-- AUTO SELL LOOP
 -----------------------------------------------------
 local AutoSell = false
 
@@ -168,30 +168,35 @@ end)
 -- WIND UI – FINAL UI STRUCTURE
 -----------------------------------------------------
 
------------------- TAB 1 (MAIN) ----------------------
+---------------------- TAB MAIN ----------------------
 local TabMain = Window:Tab({
     Title = "Main",
     Icon  = "ship",
 })
 TabMain:Select()
 
-local KaitunButton = TabMain:Button({
+TabMain:Toggle({
     Title = "Kaitun",
-    Desc  = "Start Ghostfinn Kaitun",
-    Callback = function()
-        if not KaitunRunning then StartKaitun() else StopKaitun() end
+    Desc  = "Start/Stop Ghostfinn Kaitun",
+    Default = false,
+    Callback = function(state)
+        if state then
+            task.spawn(StartKaitun)
+        else
+            StopKaitun()
+        end
     end
 })
 
------------------- TAB 2 (AUTO) ----------------------
+---------------------- TAB AUTO ----------------------
 local TabAuto = Window:Tab({
     Title = "Auto",
     Icon  = "settings",
 })
 
-local SellToggle = TabAuto:Toggle({
+TabAuto:Toggle({
     Title = "Sell All",
-    Desc  = "Sell all fish every 5 seconds",
+    Desc  = "Auto sell all every 5 seconds",
     Default = false,
     Callback = function(v)
         AutoSell = v
