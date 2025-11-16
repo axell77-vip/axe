@@ -365,7 +365,7 @@ end
 ---------------------------------------------------
 -- UI TOGGLES
 ---------------------------------------------------
-MainTab:Toggle({
+local Toggle = MainTab:Toggle({
     Title = "Start Kaitun",
     Desc = "Auto full Ghostfinn Quest",
     Default = false,
@@ -381,7 +381,7 @@ MainTab:Toggle({
     end
 })
 
-AutoTab:Toggle({
+local Toggle = AutoTab:Toggle({
     Title = "Auto Sell",
     Desc = "Sell every 5 seconds",
     Default = false,
