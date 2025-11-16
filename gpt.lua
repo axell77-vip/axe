@@ -18,56 +18,9 @@ local WindUI = loadstring(game:HttpGet(
     "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"
 ))()
 
-local Window = WindUI:CreateWindow({
-    Title = "Axee Unreleased | Final",
-    Icon = "ship",
-    Author = "gg/UARyY46axv",
-})
-
----------------------------------------------------
--- TABS
----------------------------------------------------
-local MainTab = Window:Tab({
-    Title = "Main",
-})
-MainTab:Select()
-
-local AutoTab = Window:Tab({
-    Title = "Auto"
-})
-
----------------------------------------------------
--- UI TOGGLES
----------------------------------------------------
-local Toggle = MainTab:Toggle({
-    Title = "Start Kaitun",
-    Desc = "Auto full Ghostfinn Quest",
-    Default = false,
-    Callback = function(v)
-        if v then
-            KaitunRunning = false
-            task.wait(.1)
-            task.spawn(KaitunFlow)
-        else
-            KaitunRunning = false
-            StopFishingV1()
-        end
-    end
-})
-
-local Toggle = AutoTab:Toggle({
-    Title = "Auto Sell",
-    Desc = "Sell every 5 seconds",
-    Default = false,
-    Callback = function(v)
-        if v then StartAutoSell() else StopAutoSell() end
-    end
-})
-
----------------------------------------------------
----------------------------------------------------
+----------------------------------------------
 -- REMOTE REFERENCES
----------------------------------------------------
+----------------------------------------------
 local RemoteReferences = {}
 
 local function SetupRemotes()
@@ -391,4 +344,52 @@ local function KaitunFlow()
     KaitunRunning = false
 end
 ----------------------------------------------------
+----------------------------------------------
+
+---------------------------
+-- UI CREATION
+---------------------------
+
+local Window = WindUI:CreateWindow({
+    Title = "Axee Unreleased | Final",
+    Icon = "ship",
+    Author = "gg/UARyY46axv",
+})
+
+local MainTab = Window:Tab({
+    Title = "Main",
+})
+MainTab:Select()
+
+local AutoTab = Window:Tab({
+    Title = "Auto"
+})
+
+
+local Toggle = MainTab:Toggle({
+    Title = "Start Kaitun",
+    Desc = "Auto full Ghostfinn Quest",
+    Default = false,
+    Callback = function(v)
+        if v then
+            KaitunRunning = false
+            task.wait(.1)
+            task.spawn(KaitunFlow)
+        else
+            KaitunRunning = false
+            StopFishingV1()
+        end
+    end
+})
+
+local Toggle = AutoTab:Toggle({
+    Title = "Auto Sell",
+    Desc = "Sell every 5 seconds",
+    Default = false,
+    Callback = function(v)
+        if v then StartAutoSell() else StopAutoSell() end
+    end
+})
+
+---------------------------------------------------
 print("AXEE KAITUN FINAL BUILD LOADED ✓")
