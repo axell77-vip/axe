@@ -37,6 +37,35 @@ local AutoTab = Window:Tab({
 })
 
 ---------------------------------------------------
+-- UI TOGGLES
+---------------------------------------------------
+local Toggle = MainTab:Toggle({
+    Title = "Start Kaitun",
+    Desc = "Auto full Ghostfinn Quest",
+    Default = false,
+    Callback = function(v)
+        if v then
+            KaitunRunning = false
+            task.wait(.1)
+            task.spawn(KaitunFlow)
+        else
+            KaitunRunning = false
+            StopFishingV1()
+        end
+    end
+})
+
+local Toggle = AutoTab:Toggle({
+    Title = "Auto Sell",
+    Desc = "Sell every 5 seconds",
+    Default = false,
+    Callback = function(v)
+        if v then StartAutoSell() else StopAutoSell() end
+    end
+})
+
+---------------------------------------------------
+---------------------------------------------------
 -- REMOTE REFERENCES
 ---------------------------------------------------
 local RemoteReferences = {}
@@ -361,34 +390,5 @@ local function KaitunFlow()
 
     KaitunRunning = false
 end
-
----------------------------------------------------
--- UI TOGGLES
----------------------------------------------------
-local Toggle = MainTab:Toggle({
-    Title = "Start Kaitun",
-    Desc = "Auto full Ghostfinn Quest",
-    Default = false,
-    Callback = function(v)
-        if v then
-            KaitunRunning = false
-            task.wait(.1)
-            task.spawn(KaitunFlow)
-        else
-            KaitunRunning = false
-            StopFishingV1()
-        end
-    end
-})
-
-local Toggle = AutoTab:Toggle({
-    Title = "Auto Sell",
-    Desc = "Sell every 5 seconds",
-    Default = false,
-    Callback = function(v)
-        if v then StartAutoSell() else StopAutoSell() end
-    end
-})
-
----------------------------------------------------
+----------------------------------------------------
 print("AXEE KAITUN FINAL BUILD LOADED ✓")
