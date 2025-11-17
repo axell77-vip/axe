@@ -1,109 +1,173 @@
---// Load WindUI
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/FootageSus/WindUI/main/Source.lua"))()
+-- // VARIABLES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
+local Character = player.Character or player.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
 
---// Create Window
-local Window = WindUI:CreateWindow({
-    Title = "Acxll Studio — External Panel",
-    Subtitle = "Fishing Controls",
-    Size = UDim2.fromOffset(530, 360),
-    Theme = "Dark"
-})
+-- Remote Reference
+local RemoteReferences = {}
+RemoteReferences.Net = ReplicatedStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
 
---=====================================================
--- TAB 1 — Fishing Info
---=====================================================
+RemoteReferences.SellRemote = RemoteReferences.Net["RF/SellAllItems"]
+RemoteReferences.BuyRod = RemoteReferences.Net["RF/PurchaseFishingRod"]
+RemoteReferences.UpdateAutoFishing = RemoteReferences.Net["RF/UpdateAutoFishingState"]
+RemoteReferences.StartMini = RemoteReferences.Net["RF/RequestFishingMinigameStarted"]
 
-local FishingTab = Window:CreateTab({
-    Title = "Fishing Info",
-    Icon = "rbxassetid://10734947462"
-})
+-- CONFIG
+local Config = {
+    FishingV1 = false,
+    AutoSell = false,
+}
 
--- Toggle: Auto Fishing
-local autoFish = false
-FishingTab:CreateToggle({
-    Title = "Auto Fishing",
-    Default = false,
-    Callback = function(state)
-        autoFish = state
-        
-        if state then
-            task.spawn(function()
-                while autoFish do
-                    pcall(function()
-                        -- Ganti remote sesuai game lu
-                        game.ReplicatedStorage.Events.Fish:FireServer()
-                    end)
-                    task.wait(1)
-                end
-            end)
-        end
-    end
-})
+local FishingActive = false
 
--- Toggle: Auto Sell
-local autoSell = false
-FishingTab:CreateToggle({
-    Title = "Auto Sell",
-    Default = false,
-    Callback = function(state)
-        autoSell = state
-        
-        if state then
-            task.spawn(function()
-                while autoSell do
-                    pcall(function()
-                        -- Ganti remote sesuai game lu
-                        game.ReplicatedStorage.Events.SellFish:FireServer()
-                    end)
-                    task.wait(1)
-                end
-            end)
-        end
-    end
-})
+-- CFrame TELEPORT LIST
+local TeleportList = {
+    Volcano = CFrame.new(-546.500671, 16.2349777, 115.35006),
+    Treasure = CFrame.new(-3570.70264, -279.074188, -1599.13953),
+    Sisyphus = CFrame.new(-3737.87354, -135.073914, -888.212891),
+}
 
---=====================================================
--- TAB 2 — Teleport
---=====================================================
+----------------------------------------------------------------
+-- // AUTO FISHING SYSTEM
+----------------------------------------------------------------
 
-local TeleportTab = Window:CreateTab({
-    Title = "Teleport",
-    Icon = "rbxassetid://10734946714"
-})
+local function StartFishingV1()
+    if FishingActive then return end
+    
+    FishingActive = true
+    Config.FishingV1 = true
 
-local function tp(pos)
     pcall(function()
-        local chr = game.Players.LocalPlayer.Character
-        if chr and chr:FindFirstChild("HumanoidRootPart") then
-            chr.HumanoidRootPart.CFrame = CFrame.new(pos)
-        end
+        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
+    end)
+
+    -- PERFECT CATCH PATCH
+    local mt = getrawmetatable(game)
+    if mt then
+        setreadonly(mt, false)
+        local old = mt.__namecall
+
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if method == "InvokeServer" and self == RemoteReferences.StartMini and Config.FishingV1 then
+                return old(self, -1.2331848, 0.9945034)
+            end
+            return old(self, ...)
+        end)
+        setreadonly(mt, true)
+    end
+
+    task.spawn(function()
+        while Config.FishingV1 do task.wait(1) end
+        
+        pcall(function()
+            RemoteReferences.UpdateAutoFishing:InvokeServer(false)
+        end)
+        FishingActive = false
     end)
 end
 
-TeleportTab:CreateButton({
-    Title = "Teleport to Island 1",
-    Callback = function()
-        tp(Vector3.new(100, 20, 50))  -- EDIT koordinat
+local function StopFishingV1()
+    Config.FishingV1 = false
+end
+
+----------------------------------------------------------------
+-- AUTO SELL
+----------------------------------------------------------------
+task.spawn(function()
+    while task.wait(3) do
+        if Config.AutoSell then
+            pcall(function()
+                RemoteReferences.SellRemote:InvokeServer()
+            end)
+        end
+    end
+end)
+
+----------------------------------------------------------------
+-- // UI SYSTEM
+----------------------------------------------------------------
+
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- MAIN WINDOW
+local Window = WindUI:CreateWindow({
+    Title = "Private Axee | Unpublished",
+    Icon = "door-open",
+    Author = ".gg/NuGuN5M5xj",
+})
+
+----------------------------------------------------
+-- TAB 1 : FISHING
+----------------------------------------------------
+local FishingTab = Window:Tab({
+    Title = "Fishing Feature",
+    Icon = "fish",
+})
+
+-- AUTO FISHING TOGGLE
+FishingTab:Toggle({
+    Title = "Auto Fishing",
+    Desc = "Auto fishing system",
+    Value = false,
+    Callback = function(state)
+        if state then
+            StartFishingV1()
+        else
+            StopFishingV1()
+        end
     end
 })
 
-TeleportTab:CreateButton({
-    Title = "Teleport to Island 2",
-    Callback = function()
-        tp(Vector3.new(250, 20, -40))  -- EDIT koordinat
+-- AUTO SELL
+FishingTab:Toggle({
+    Title = "Auto Sell",
+    Desc = "Automatically sell all fish",
+    Value = false,
+    Callback = function(state)
+        Config.AutoSell = state
     end
 })
 
-TeleportTab:CreateButton({
-    Title = "Teleport to Island 3",
+-- BUY STEAMPUNK BUTTON
+FishingTab:Button({
+    Title = "Buy Steampunk Rod",
+    Desc = "Auto buy the Steampunk Rod",
     Callback = function()
-        tp(Vector3.new(-300, 35, 200))  -- EDIT koordinat
+        pcall(function()
+            RemoteReferences.BuyRod:InvokeServer("!!! Steampunk Rod")
+        end)
     end
 })
 
-TeleportTab:CreateButton({
-    Title = "Teleport to Island 4",
+----------------------------------------------------
+-- TAB 2 : TELEPORT
+----------------------------------------------------
+local TeleportTab = Window:Tab({
+    Title = "Teleport",
+    Icon = "map-pin",
+})
+
+TeleportTab:Button({
+    Title = "Kohana Volcano",
     Callback = function()
-        tp(Vector3.new(500, 50, -300))  -- EDIT koordinat
+        HRP.CFrame = TeleportList.Volcano
+    end
+})
+
+TeleportTab:Button({
+    Title = "Treasure Room",
+    Callback = function()
+        HRP.CFrame = TeleportList.Treasure
+    end
+})
+
+TeleportTab:Button({
+    Title = "Sisyphus Statue",
+    Callback = function()
+        HRP.CFrame = TeleportList.Sisyphus
     end
 })
