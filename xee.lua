@@ -1,29 +1,61 @@
--- // VARIABLES
+-- // SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
+
+-- // LOAD WINDUI *DIATAS SEMUA*
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+-- // BUILD WINDOW DULU
+local Window = WindUI:CreateWindow({
+    Title = "Private Axee | Unpublished",
+    Icon = "door-open",
+    Author = ".gg/NuGuN5M5xj",
+})
+
+----------------------------------------------------
+-- TAB 1 : FISHING FEATURE
+----------------------------------------------------
+local FishingTab = Window:Tab({
+    Title = "Fishing Feature",
+    Icon = "fish",
+})
+
+----------------------------------------------------
+-- TAB 2 : TELEPORT
+----------------------------------------------------
+local TeleportTab = Window:Tab({
+    Title = "Teleport",
+    Icon = "map-pin",
+})
+
+----------------------------------------------------
+-- SELESAI UI
+-- MULAI SETTING GAME & LOGIC
+----------------------------------------------------
+
 local Character = player.Character or player.CharacterAdded:Wait()
 local HRP = Character:WaitForChild("HumanoidRootPart")
 
--- Remote Reference
-local RemoteReferences = {}
-RemoteReferences.Net = ReplicatedStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
+-- REMOTES
+local Net = ReplicatedStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
 
-RemoteReferences.SellRemote = RemoteReferences.Net["RF/SellAllItems"]
-RemoteReferences.BuyRod = RemoteReferences.Net["RF/PurchaseFishingRod"]
-RemoteReferences.UpdateAutoFishing = RemoteReferences.Net["RF/UpdateAutoFishingState"]
-RemoteReferences.StartMini = RemoteReferences.Net["RF/RequestFishingMinigameStarted"]
+local RemoteReferences = {
+    SellRemote = Net["RF/SellAllItems"],
+    UpdateAutoFishing = Net["RF/UpdateAutoFishingState"],
+    StartMini = Net["RF/RequestFishingMinigameStarted"],
+    BuyRod = Net["RF/PurchaseFishingRod"],
+}
 
--- CONFIG
 local Config = {
     FishingV1 = false,
     AutoSell = false,
 }
 
 local FishingActive = false
+local SteampunkName = "!!! Steampunk Rod"
 
--- CFrame TELEPORT LIST
+-- TELEPORT DATA
 local TeleportList = {
     Volcano = CFrame.new(-546.500671, 16.2349777, 115.35006),
     Treasure = CFrame.new(-3570.70264, -279.074188, -1599.13953),
@@ -31,12 +63,11 @@ local TeleportList = {
 }
 
 ----------------------------------------------------------------
--- // AUTO FISHING SYSTEM
+-- AUTO FISHING LOGIC
 ----------------------------------------------------------------
-
 local function StartFishingV1()
     if FishingActive then return end
-    
+
     FishingActive = true
     Config.FishingV1 = true
 
@@ -44,7 +75,7 @@ local function StartFishingV1()
         RemoteReferences.UpdateAutoFishing:InvokeServer(true)
     end)
 
-    -- PERFECT CATCH PATCH
+    -- PERFECT CATCH
     local mt = getrawmetatable(game)
     if mt then
         setreadonly(mt, false)
@@ -57,15 +88,17 @@ local function StartFishingV1()
             end
             return old(self, ...)
         end)
+
         setreadonly(mt, true)
     end
 
     task.spawn(function()
         while Config.FishingV1 do task.wait(1) end
-        
+
         pcall(function()
             RemoteReferences.UpdateAutoFishing:InvokeServer(false)
         end)
+
         FishingActive = false
     end)
 end
@@ -75,10 +108,10 @@ local function StopFishingV1()
 end
 
 ----------------------------------------------------------------
--- AUTO SELL
+-- AUTO SELL LOOP
 ----------------------------------------------------------------
 task.spawn(function()
-    while task.wait(3) do
+    while task.wait(2) do
         if Config.AutoSell then
             pcall(function()
                 RemoteReferences.SellRemote:InvokeServer()
@@ -88,69 +121,41 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- // UI SYSTEM
+-- CONNECT UI TO FUNCTIONS
 ----------------------------------------------------------------
 
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
--- MAIN WINDOW
-local Window = WindUI:CreateWindow({
-    Title = "Private Axee | Unpublished",
-    Icon = "door-open",
-    Author = ".gg/NuGuN5M5xj",
-})
-
-----------------------------------------------------
--- TAB 1 : FISHING
-----------------------------------------------------
-local FishingTab = Window:Tab({
-    Title = "Fishing Feature",
-    Icon = "fish",
-})
-
--- AUTO FISHING TOGGLE
+-- AUTO FISHING
 FishingTab:Toggle({
     Title = "Auto Fishing",
-    Desc = "Auto fishing system",
+    Desc = "Enable automatic fishing",
     Value = false,
     Callback = function(state)
-        if state then
-            StartFishingV1()
-        else
-            StopFishingV1()
-        end
+        if state then StartFishingV1() else StopFishingV1() end
     end
 })
 
 -- AUTO SELL
 FishingTab:Toggle({
     Title = "Auto Sell",
-    Desc = "Automatically sell all fish",
+    Desc = "Sell fish automatically",
     Value = false,
     Callback = function(state)
         Config.AutoSell = state
     end
 })
 
--- BUY STEAMPUNK BUTTON
+-- BUY STEAMPUNK
 FishingTab:Button({
     Title = "Buy Steampunk Rod",
-    Desc = "Auto buy the Steampunk Rod",
+    Desc = "Purchase Steampunk Rod",
     Callback = function()
         pcall(function()
-            RemoteReferences.BuyRod:InvokeServer("!!! Steampunk Rod")
+            RemoteReferences.BuyRod:InvokeServer(SteampunkName)
         end)
     end
 })
 
-----------------------------------------------------
--- TAB 2 : TELEPORT
-----------------------------------------------------
-local TeleportTab = Window:Tab({
-    Title = "Teleport",
-    Icon = "map-pin",
-})
-
+-- TELEPORT BUTTONS
 TeleportTab:Button({
     Title = "Kohana Volcano",
     Callback = function()
