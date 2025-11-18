@@ -135,39 +135,15 @@ TabFishing:CreateButton({
     Name = "Buy Steampunk Rod",
     Callback = function()
         pcall(function()
-            local SteampunkRodData = {
-                Data = {
-                    Id = 6;
-                    Type = "Fishing Rods";
-                    Name = "Steampunk Rod";
-                    Description = "???";
-                    Icon = "rbxassetid://109211472277743";
-                    Tier = 4;
-                };
-                ClickPower = 0.13;
-                Resilience = 4.3;
-                Windup = NumberRange.new(3.6, 5.67);
-                Price = 215000;
-                MaxWeight = 25000;
-                RollData = {
-                    BaseLuck = 2.25;
-                    Frequency = {
-                        Golden = 0;
-                        Rainbow = 0;
-                    };
-                };
-                _moduleScript = RepStorage.Items:WaitForChild("!!! Steampunk Rod");
-            }
-
-            -- InvokeServer dan dapatkan hasil
+            local RodId = 6 -- Steampunk Rod ID
             local success, response = pcall(function()
-                return RemoteReferences.RodPurchase:InvokeServer(SteampunkRodData)
+                return RemoteReferences.RodPurchase:InvokeServer(RodId)
             end)
 
             if success then
                 Rayfield:Notify({
                     Title = "✅ Rod Purchase",
-                    Content = "Steampunk Rod purchase attempt sent!",
+                    Content = "Steampunk Rod purchase sent!",
                     Duration = 5,
                     Image = 4483362458
                 })
