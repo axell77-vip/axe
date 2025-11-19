@@ -22,12 +22,12 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- REMOTES
 local RemoteReferences = {}
 RemoteReferences.Net = RepStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
-RemoteReferences.EquipRemote = RemoteReferences.Net:WaitForChild("RE/EquipToolFromHotbar")
-RemoteReferences.UnequipRemote = RemoteReferences.Net:WaitForChild("RE/UnequipToolFromHotbar")
 RemoteReferences.UpdateAutoFishing = RemoteReferences.Net:WaitForChild("RF/UpdateAutoFishingState")
+RemoteReferences.ChargeRod = RemoteReferences.Net:WaitForChild("RF/ChargeFishingRod")
+RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
+RemoteReferences.FishingCompleted = RemoteReferences.Net:WaitForChild("RE/FishingCompleted")
 RemoteReferences.SellRemote = RemoteReferences.Net:WaitForChild("RF/SellAllItems")
 RemoteReferences.RodPurchase = RemoteReferences.Net:WaitForChild("RF/PurchaseFishingRod")
-RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
 
 -- LOCATIONS
 local Locations = {
@@ -40,7 +40,6 @@ local Locations = {
 local Config = {
     AutoFishing = false,
     AutoSell = false,
-    PerfectCatch = true,
 }
 local FishingActive = false
 
@@ -50,38 +49,28 @@ local function StartFishing()
     FishingActive = true
     Config.AutoFishing = true
 
-    pcall(function()
-        RemoteReferences.EquipRemote:FireServer()
-    end)
-    task.wait(0.5)
-
-    pcall(function()
-        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
-    end)
-
-    if Config.PerfectCatch then
-        local mt = getrawmetatable(game)
-        if mt then
-            setreadonly(mt, false)
-            local oldNamecall = mt.__namecall
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                if method == "InvokeServer" and self == RemoteReferences.StartMini and Config.AutoFishing then
-                    return oldNamecall(self, -1.233184814453125, 0.9945034885633273)
-                end
-                return oldNamecall(self, ...)
-            end)
-            setreadonly(mt, true)
-        end
-    end
-
     task.spawn(function()
         while Config.AutoFishing do
-            task.wait(1)
+            pcall(function()
+                -- Step 1: Enable Auto Fishing
+                RemoteReferences.UpdateAutoFishing:InvokeServer(true)
+
+                -- Step 2: Charge Rod
+                RemoteReferences.ChargeRod:InvokeServer()
+
+                -- Step 3: Start Mini Game
+                local argsMini = {-0.5718746185302734, 0.5, 1763575074.685123}
+                RemoteReferences.StartMini:InvokeServer(unpack(argsMini))
+
+                -- Step 4: Complete Fishing
+                RemoteReferences.FishingCompleted:FireServer()
+            end)
+            task.wait(1) -- small delay to avoid spam
         end
+
+        -- Stop AutoFishing
         pcall(function()
             RemoteReferences.UpdateAutoFishing:InvokeServer(false)
-            RemoteReferences.UnequipRemote:FireServer()
         end)
         FishingActive = false
     end)
