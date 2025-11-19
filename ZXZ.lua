@@ -8,7 +8,7 @@ local Window = Rayfield:CreateWindow({
    LoadingTitle = "Axee Interface",
    LoadingSubtitle = "Private Script",
    ShowText = "Axee",
-   Theme = "Bloom"
+   Theme = "Default"
 })
 
 -- SERVICES
@@ -16,8 +16,22 @@ local Players = game:GetService("Players")
 local RepStorage = game:GetService("ReplicatedStorage")
 local WorkspaceService = game:GetService("Workspace")
 local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
+
+-- SAFE HRP FUNCTION
+local function GetHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
+end
+
+-- SAFE TELEPORT FUNCTION
+local function SafeTeleport(cf)
+    local root = GetHRP()
+    if typeof(cf) == "CFrame" then
+        root.CFrame = cf
+    else
+        warn("Invalid CFrame for teleport.")
+    end
+end
 
 -- REMOTES
 local RemoteReferences = {}
@@ -50,25 +64,21 @@ local function StartFishing()
     FishingActive = true
     Config.AutoFishing = true
 
-    -- AUTO EQUIP ROD terlebih dahulu
+    -- AUTO EQUIP ROD
     pcall(function()
-        if RemoteReferences.EquipRemote then
-            RemoteReferences.EquipRemote:FireServer()
-        end
+        RemoteReferences.EquipRemote:FireServer()
     end)
     task.wait(0.5)
 
     -- ENABLE AUTO FISHING
     pcall(function()
-        if RemoteReferences.UpdateAutoFishing then
-            RemoteReferences.UpdateAutoFishing:InvokeServer(true)
-        end
+        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
     end)
 
     -- PERFECT CATCH HOOK
     if Config.PerfectCatch then
-        local success, mt = pcall(function() return getrawmetatable(game) end)
-        if success and mt then
+        local mt = getrawmetatable(game)
+        if mt then
             setreadonly(mt, false)
             local oldNamecall = mt.__namecall
             mt.__namecall = newcclosure(function(self, ...)
@@ -82,20 +92,14 @@ local function StartFishing()
         end
     end
 
-    -- LOOP UNTUK AUTO FISHING
+    -- AUTO FISHING LOOP
     task.spawn(function()
         while Config.AutoFishing do
             task.wait(1)
         end
-
-        -- STOP AUTO FISHING + UNEQUIP ROD
         pcall(function()
-            if RemoteReferences.UpdateAutoFishing then
-                RemoteReferences.UpdateAutoFishing:InvokeServer(false)
-            end
-            if RemoteReferences.UnequipRemote then
-                RemoteReferences.UnequipRemote:FireServer()
-            end
+            RemoteReferences.UpdateAutoFishing:InvokeServer(false)
+            RemoteReferences.UnequipRemote:FireServer()
         end)
         FishingActive = false
     end)
@@ -131,9 +135,7 @@ TabFishing:CreateToggle({
             while Config.AutoSell do
                 task.wait(3)
                 pcall(function()
-                    if RemoteReferences.SellRemote then
-                        RemoteReferences.SellRemote:InvokeServer()
-                    end
+                    RemoteReferences.SellRemote:InvokeServer()
                 end)
             end
         end)
@@ -173,21 +175,21 @@ local TabTeleport = Window:CreateTab("Teleport", "map")
 TabTeleport:CreateButton({
     Name = "Volcano",
     Callback = function()
-        pcall(function() hrp.CFrame = Locations.Volcano end)
+        SafeTeleport(Locations.Volcano)
     end
 })
 
 TabTeleport:CreateButton({
     Name = "Treasure Room",
     Callback = function()
-        pcall(function() hrp.CFrame = Locations.Treasure end)
+        SafeTeleport(Locations.Treasure)
     end
 })
 
 TabTeleport:CreateButton({
     Name = "Sisyphus Statue",
     Callback = function()
-        pcall(function() hrp.CFrame = Locations.Sisyphus end)
+        SafeTeleport(Locations.Sisyphus)
     end
 })
 
@@ -199,12 +201,29 @@ local QuestParagraph = TabGhostfinn:CreateParagraph({
     Content = "Waiting to track quests..."
 })
 
--- Consolidated helper functions (single copy)
-local function GetHRP()
-    local c = player.Character or player.CharacterAdded:Wait()
-    return c:WaitForChild("HumanoidRootPart")
-end
+-- GHOSTFINN CONFIG: semua quest digabung 1 paragraph
+local GhostfinnConfig = {
+    Active = false,
+    QuestList = {
+        {
+            Name = "Treasure Room Quest",
+            Key = "CatchRareTreasureRoom",
+            Location = Locations.Treasure
+        },
+        {
+            Name = "Sisyphus Mythic Quest",
+            Key = "3mythic",
+            Location = Locations.Sisyphus
+        },
+        {
+            Name = "Sisyphus Secret Quest",
+            Key = "1secret",
+            Location = Locations.Sisyphus
+        }
+    }
+}
 
+-- helper tracker/progress
 local function GetQuestTrackerByKey(key)
     local menu = WorkspaceService:FindFirstChild("!!! MENU RINGS")
     if not menu then return nil end
@@ -220,7 +239,8 @@ local function GetQuestProgressByKey(key)
     local tracker = GetQuestTrackerByKey(key)
     if not tracker then return 0 end
     local ok, label = pcall(function()
-        return tracker.Board and tracker.Board:FindFirstChild("Gui") 
+        return tracker.Board
+            and tracker.Board:FindFirstChild("Gui")
             and tracker.Board.Gui:FindFirstChild("Content")
             and tracker.Board.Gui.Content:FindFirstChild("Progress")
             and tracker.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
@@ -230,153 +250,67 @@ local function GetQuestProgressByKey(key)
     return tonumber(pct) or 0
 end
 
--- Define the ordered quest list (sequential)
-local GhostfinnQuestList = {
-    {
-        Id = "treasure",
-        Display = "Catch 300 Rare/Epic fish in the Treasure Room",
-        SearchKey = "CatchRareTreasureRoom",
-        Location = Locations.Treasure,
-    },
-    {
-        Id = "sisyphus_mythic",
-        Display = "Catch 3 Mythic fish at Sisyphus Statue",
-        SearchKey = "3mythic", -- menggunakan key versi Sisyphus yang lo berikan
-        Location = Locations.Sisyphus,
-    },
-    {
-        Id = "sisyphus_secret",
-        Display = "Catch 1 SECRET fish at Sisyphus Statue",
-        SearchKey = "1secret", -- menggunakan key versi Sisyphus yang lo berikan
-        Location = Locations.Sisyphus,
-    },
-}
-
--- Single toggle: sequential processing (1 -> 2 -> 3)
+-- CREATE 1 TOGGLE 1 PARAGRAPH
 TabGhostfinn:CreateToggle({
-    Name = "Enable Ghostfinn Auto (Sequential)",
+    Name = "Enable Ghostfinn Auto",
     CurrentValue = false,
-    Flag = "GhostfinnAutoSeq",
-    Callback = function(state)
-        if state then
-            Rayfield:Notify({Title = "Ghostfinn Auto", Content = "Started sequential quest runner", Duration = 3})
+    Flag = "GhostfinnAuto",
+    Callback = function(Value)
+        GhostfinnConfig.Active = Value
+        if Value then
             task.spawn(function()
-                local active = true
-                local currentIndex = 1
-
-                while active and currentIndex <= #GhostfinnQuestList do
-                    local quest = GhostfinnQuestList[currentIndex]
-
-                    -- Update paragraph to show all 3 progress lines
-                    local function UpdateAllProgress()
-                        local lines = {}
-                        for i, q in ipairs(GhostfinnQuestList) do
-                            local p = GetQuestProgressByKey(q.SearchKey) or 0
-                            table.insert(lines, string.format("%s: %.1f%%", q.Display, p))
-                        end
-                        QuestParagraph:Set({
-                            Title = "Ghostfinn Quests",
-                            Content = table.concat(lines, "\n")
-                        })
-                    end
-
-                    -- Wait for tracker to exist / detect progress start (0->> or appear)
-                    local started = false
-                    local teleported = false
-
-                    while not started and state do
-                        UpdateAllProgress()
-                        local prog = GetQuestProgressByKey(quest.SearchKey)
-                        if prog > 0 then
-                            started = true
-                        else
-                            -- also try to find tracker existence as signal
-                            if GetQuestTrackerByKey(quest.SearchKey) then
-                                started = true
+                local teleported = {}
+                while GhostfinnConfig.Active do
+                    local contentLines = {}
+                    local allDone = true
+                    for _, quest in ipairs(GhostfinnConfig.QuestList) do
+                        local progress = GetQuestProgressByKey(quest.Key)
+                        table.insert(contentLines, quest.Name .. " - " .. progress .. "%")
+                        if progress < 100 then
+                            allDone = false
+                            -- teleport & start fishing if progress > 0 and not teleported yet
+                            if progress > 0 and not teleported[quest.Key] then
+                                SafeTeleport(quest.Location)
+                                teleported[quest.Key] = true
+                                -- equip rod & start fishing
+                                pcall(function()
+                                    if RemoteReferences.EquipRemote then
+                                        RemoteReferences.EquipRemote:FireServer()
+                                    end
+                                    task.wait(0.5)
+                                    StartFishing()
+                                end)
                             end
                         end
-                        if not started then
-                            task.wait(3)
-                        end
                     end
 
-                    -- Teleport once to quest location & start fishing
-                    if started then
-                        pcall(function()
-                            local myhrp = GetHRP()
-                            myhrp.CFrame = quest.Location
-                        end)
+                    -- update single paragraph
+                    QuestParagraph:Set({
+                        Title = "Ghostfinn Quest Tracking",
+                        Content = table.concat(contentLines, "\n")
+                    })
 
-                        pcall(function()
-                            Rayfield:Notify({
-                                Title = "Teleport",
-                                Content = "Teleported to quest location for: "..quest.Display,
-                                Duration = 3
-                            })
-                        end)
-
-                        -- Equip rod and start fishing
-                        pcall(function()
-                            if RemoteReferences.EquipRemote then
-                                RemoteReferences.EquipRemote:FireServer()
-                            end
-                        end)
-
-                        task.wait(0.5)
-                        pcall(function() StartFishing() end)
-                        teleported = true
-                    end
-
-                    -- Monitor this quest until 100%
-                    while state do
-                        local curProg = GetQuestProgressByKey(quest.SearchKey) or 0
-                        QuestParagraph:Set({
-                            Title = "Working: "..quest.Display,
-                            Content = string.format("%s - %.1f%% complete\n\n(Other quests listed in main overview)", quest.Display, curProg)
+                    -- stop fishing jika semua done
+                    if allDone then
+                        StopFishing()
+                        GhostfinnConfig.Active = false
+                        Rayfield:Notify({
+                            Title = "Ghostfinn Auto",
+                            Content = "✅ All Quests Completed",
+                            Duration = 5
                         })
-
-                        if curProg >= 100 then
-                            -- stop fishing for a smooth handoff
-                            pcall(function() StopFishing() end)
-
-                            Rayfield:Notify({
-                                Title = "Quest Complete",
-                                Content = quest.Display.." reached 100%",
-                                Duration = 4
-                            })
-
-                            -- small cooldown
-                            task.wait(1)
-                            break
-                        end
-
-                        task.wait(5)
-                    end
-
-                    -- go to next quest
-                    currentIndex = currentIndex + 1
-
-                    -- quick update of all progress before next loop
-                    UpdateAllProgress()
-
-                    -- if the user turned off the main toggle -> exit
-                    if not state then
                         break
                     end
-                end
 
-                -- finished sequence or stopped by user
-                if state then
-                    Rayfield:Notify({Title = "Ghostfinn Auto", Content = "All quests completed (or no more quests).", Duration = 4})
-                    QuestParagraph:Set({Title = "All Quests Completed", Content = "✅ Ghostfinn Auto Finished!"})
-                else
-                    QuestParagraph:Set({Title = "Ghostfinn Auto", Content = "Stopped by user"})
+                    task.wait(5)
                 end
             end)
         else
-            -- user disabled toggle: ensure fishing stopped
-            pcall(function() StopFishing() end)
-            QuestParagraph:Set({Title = "Ghostfinn Auto", Content = "Stopped by user"})
+            StopFishing()
+            QuestParagraph:Set({
+                Title = "Ghostfinn Auto",
+                Content = "Stopped by user"
+            })
         end
     end
 })
