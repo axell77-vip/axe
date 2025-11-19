@@ -47,31 +47,49 @@ local FishingActive = false
 local function StartFishing()
     if FishingActive then return end
     FishingActive = true
-    Config.AutoFishing = true
 
     task.spawn(function()
         while Config.AutoFishing do
             pcall(function()
-                -- Step 1: Enable Auto Fishing
-                RemoteReferences.UpdateAutoFishing:InvokeServer(true)
+                -- 1️⃣ Enable Auto Fishing
+                local args1 = {true}
+                game:GetService("ReplicatedStorage"):WaitForChild("Packages")
+                    :WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0")
+                    :WaitForChild("net"):WaitForChild("RF/UpdateAutoFishingState")
+                    :InvokeServer(unpack(args1))
 
-                -- Step 2: Charge Rod
-                RemoteReferences.ChargeRod:InvokeServer()
+                -- 2️⃣ Charge Fishing Rod
+                game:GetService("ReplicatedStorage"):WaitForChild("Packages")
+                    :WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0")
+                    :WaitForChild("net"):WaitForChild("RF/ChargeFishingRod")
+                    :InvokeServer()
 
-                -- Step 3: Start Mini Game
-                local argsMini = {-0.5718746185302734, 0.5, 1763575074.685123}
-                RemoteReferences.StartMini:InvokeServer(unpack(argsMini))
+                -- 3️⃣ Start Mini Game
+                local args2 = {-0.5718746185302734, 0.5, 1763575694.689195}
+                game:GetService("ReplicatedStorage"):WaitForChild("Packages")
+                    :WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0")
+                    :WaitForChild("net"):WaitForChild("RF/RequestFishingMinigameStarted")
+                    :InvokeServer(unpack(args2))
 
-                -- Step 4: Complete Fishing
-                RemoteReferences.FishingCompleted:FireServer()
+                -- 4️⃣ Complete Fishing
+                game:GetService("ReplicatedStorage"):WaitForChild("Packages")
+                    :WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0")
+                    :WaitForChild("net"):WaitForChild("RE/FishingCompleted")
+                    :FireServer()
             end)
-            task.wait(1) -- small delay to avoid spam
+
+            task.wait(1) -- wait a second before next iteration
         end
 
         -- Stop AutoFishing
         pcall(function()
-            RemoteReferences.UpdateAutoFishing:InvokeServer(false)
+            local args1 = {false}
+            game:GetService("ReplicatedStorage"):WaitForChild("Packages")
+                :WaitForChild("_Index"):WaitForChild("sleitnick_net@0.2.0")
+                :WaitForChild("net"):WaitForChild("RF/UpdateAutoFishingState")
+                :InvokeServer(unpack(args1))
         end)
+
         FishingActive = false
     end)
 end
@@ -194,7 +212,6 @@ TabGhostfinnQuest:CreateToggle({
                 StartFishing()
                 while TreasureQuestConfig.Active do
                     task.wait(5)
-                    -- get quest progress
                     local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS")
                     local progress = 0
                     if tracker then
