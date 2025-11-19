@@ -22,12 +22,12 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- REMOTES
 local RemoteReferences = {}
 RemoteReferences.Net = RepStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
-RemoteReferences.EquipRemote = RemoteReferences.Net:WaitForChild("RE/EquipToolFromHotbar")
-RemoteReferences.UnequipRemote = RemoteReferences.Net:WaitForChild("RE/UnequipToolFromHotbar")
 RemoteReferences.UpdateAutoFishing = RemoteReferences.Net:WaitForChild("RF/UpdateAutoFishingState")
+RemoteReferences.ChargeRod = RemoteReferences.Net:WaitForChild("RF/ChargeFishingRod")
+RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
+RemoteReferences.FishingCompleted = RemoteReferences.Net:WaitForChild("RE/FishingCompleted")
 RemoteReferences.SellRemote = RemoteReferences.Net:WaitForChild("RF/SellAllItems")
 RemoteReferences.RodPurchase = RemoteReferences.Net:WaitForChild("RF/PurchaseFishingRod")
-RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
 
 -- LOCATIONS
 local Locations = {
@@ -40,7 +40,6 @@ local Locations = {
 local Config = {
     AutoFishing = false,
     AutoSell = false,
-    PerfectCatch = true,
 }
 local FishingActive = false
 
@@ -48,53 +47,73 @@ local FishingActive = false
 local function StartFishing()
     if FishingActive then return end
     FishingActive = true
-    Config.AutoFishing = true
 
-    -- AUTO EQUIP ROD terlebih dahulu
-    pcall(function()
-        RemoteReferences.EquipRemote:FireServer()
-    end)
-    task.wait(0.5)
-
-    -- ENABLE AUTO FISHING
-    pcall(function()
-        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
-    end)
-
-    -- PERFECT CATCH HOOK
-    if Config.PerfectCatch then
-        local mt = getrawmetatable(game)
-        if mt then
-            setreadonly(mt, false)
-            local oldNamecall = mt.__namecall
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                if method == "InvokeServer" and self == RemoteReferences.StartMini and Config.AutoFishing then
-                    return oldNamecall(self, -1.233184814453125, 0.9945034885633273)
-                end
-                return oldNamecall(self, ...)
-            end)
-            setreadonly(mt, true)
-        end
-    end
-
-    -- LOOP UNTUK AUTO FISHING
     task.spawn(function()
         while Config.AutoFishing do
-            task.wait(1)
+            pcall(function()
+                -- 1️⃣ Enable Auto Fishing
+                local args1 = {true}
+                RemoteReferences.UpdateAutoFishing:InvokeServer(unpack(args1))
+
+                -- 2️⃣ Charge Fishing Rod
+                RemoteReferences.ChargeRod:InvokeServer()
+
+                -- 3️⃣ Start Mini Game
+                local args2 = {-0.5718746185302734, 0.5, 1763575694.689195}
+                RemoteReferences.StartMini:InvokeServer(unpack(args2))
+
+                -- 4️⃣ Complete Fishing
+                RemoteReferences.FishingCompleted:FireServer()
+            end)
+
+            task.wait(1) -- wait a second before next iteration
         end
 
-        -- STOP AUTO FISHING + UNEQUIP ROD
+        -- Stop AutoFishing
         pcall(function()
-            RemoteReferences.UpdateAutoFishing:InvokeServer(false)
-            RemoteReferences.UnequipRemote:FireServer()
+            local args1 = {false}
+            RemoteReferences.UpdateAutoFishing:InvokeServer(unpack(args1))
         end)
+
         FishingActive = false
     end)
 end
 
 local function StopFishing()
     Config.AutoFishing = false
+end
+
+--== QUEST TRACKING FUNCTION ==--
+local function GetQuestProgress(questKey)
+    local trackerRoot = WorkspaceService:FindFirstChild("!!! MENU RINGS")
+    if not trackerRoot then return 0 end
+
+    local totalProgress = 0
+    for _, tracker in ipairs(trackerRoot:GetChildren()) do
+        if tracker.Name:find("Tracker") and tracker.Name:lower():find(questKey:lower()) then
+            local board = tracker:FindFirstChild("Board")
+            if board then
+                local gui = board:FindFirstChild("Gui")
+                if gui and gui:FindFirstChild("Content") and gui.Content:FindFirstChild("Progress") then
+                    local label = gui.Content.Progress:FindFirstChild("ProgressLabel")
+                    if label and label:IsA("TextLabel") then
+                        -- Try percent first
+                        local percent = string.match(label.Text, "([%d%.]+)%%")
+                        if percent then
+                            totalProgress = tonumber(percent) or totalProgress
+                        else
+                            -- If text is like "75 / 300"
+                            local current, goal = string.match(label.Text, "(%d+)%s*/%s*(%d+)")
+                            if current and goal then
+                                totalProgress = math.floor((tonumber(current)/tonumber(goal))*100)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return totalProgress
 end
 
 --== TAB: FISHING FEATURE ==--
@@ -181,130 +200,115 @@ TabTeleport:CreateButton({
     end
 })
 
---== TAB: GHOSTFINN AUTO ==--
-local TabGhostfinn = Window:CreateTab("Ghostfinn Auto", "fish")
+--== TAB: GHOSTFINN QUEST ==--
+local TabGhostfinnQuest = Window:CreateTab("Ghostfinn Quest", "fish")
 
-local QuestParagraph = TabGhostfinn:CreateParagraph({
-    Title = "Quest Info",
-    Content = "Waiting to track quests..."
+-- TREASURE QUEST
+local TreasureQuestParagraph = TabGhostfinnQuest:CreateParagraph({
+    Title = "Treasure Quest",
+    Content = "Waiting to track Treasure quest..."
 })
 
-local GhostfinnConfig = {
+local TreasureQuestConfig = {
     Active = false,
-    CurrentQuestIndex = 1,
-    QuestList = {
-        {
-            Name = "Catch 300 Rare/Epic fish in the Treasure Room",
-            Key = "CatchRareTreasureRoom",
-            Value = 300,
-            Location = Locations.Treasure
-        },
-        {
-            Name = "Catch 3 Mythic fish at Sisyphus Statue",
-            Key = "CatchFish",
-            Value = 3,
-            Tier = 6,
-            Location = Locations.Sisyphus
-        },
-        {
-            Name = "Catch 1 SECRET fish at Sisyphus Statue",
-            Key = "CatchFish",
-            Value = 1,
-            Tier = 7,
-            Location = Locations.Sisyphus
-        }
-    }
+    Name = "Catch 300 Rare/Epic fish",
+    Key = "CatchRareTreasureRoom",
+    Value = 300,
+    Location = Locations.Treasure,
+    LocationName = "Treasure Room"
 }
 
-TabGhostfinn:CreateToggle({
-    Name = "Enable Ghostfinn Auto",
+TabGhostfinnQuest:CreateToggle({
+    Name = "Start Treasure Mission",
     CurrentValue = false,
-    Flag = "GhostfinnAuto",
+    Flag = "StartTreasureMission",
     Callback = function(Value)
-        GhostfinnConfig.Active = Value
+        TreasureQuestConfig.Active = Value
         if Value then
             task.spawn(function()
-                while GhostfinnConfig.Active do
-                    local quest = GhostfinnConfig.QuestList[GhostfinnConfig.CurrentQuestIndex]
-                    if not quest then break end
-
-                    QuestParagraph:Set({
-                        Title = "Tracking Quest",
-                        Content = "Current quest: "..quest.Name
+                hrp.CFrame = TreasureQuestConfig.Location
+                StartFishing()
+                while TreasureQuestConfig.Active do
+                    task.wait(5)
+                    local progress = GetQuestProgress(TreasureQuestConfig.Key)
+                    TreasureQuestParagraph:Set({
+                        Title = "Treasure Quest",
+                        Content = TreasureQuestConfig.Name.." at "..TreasureQuestConfig.LocationName.." - "..progress.."% complete"
                     })
-
-                    local function GetQuestTracker(questName)
-                        local menu = WorkspaceService:FindFirstChild("!!! MENU RINGS")
-                        if not menu then return nil end
-                        for _, instance in ipairs(menu:GetChildren()) do
-                            if instance.Name:find("Tracker") and instance.Name:lower():find(questName:lower()) then
-                                return instance
-                            end
-                        end
-                        return nil
-                    end
-
-                    local function GetQuestProgress(questName)
-                        local tracker = GetQuestTracker(questName)
-                        if not tracker then return 0 end
-                        local label = tracker:FindFirstChild("Board") and tracker.Board:FindFirstChild("Gui")
-                            and tracker.Board.Gui:FindFirstChild("Content")
-                            and tracker.Board.Gui.Content:FindFirstChild("Progress")
-                            and tracker.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
-                        if label and label:IsA("TextLabel") then
-                            local percent = string.match(label.Text, "([%d%.]+)%%")
-                            return tonumber(percent) or 0
-                        end
-                        return 0
-                    end
-
-                    -- Track quest per 5 detik sampai progress 100%
-                    while task.wait(5) do
-                        local progress = GetQuestProgress(quest.Name)
-                        QuestParagraph:Set({
-                            Title = "Tracking Quest",
-                            Content = quest.Name.." - "..progress.."% complete"
-                        })
-                        if progress >= 100 then
-                            break
-                        end
-                    end
-
-                    -- Teleport ke lokasi quest
-                    hrp.CFrame = quest.Location
-                    task.wait(1)
-
-                    -- Start auto fishing
-                    StartFishing()
-
-                    -- Monitor quest progress while fishing
-                    while task.wait(5) do
-                        local progress = GetQuestProgress(quest.Name)
-                        QuestParagraph:Set({
-                            Title = "Fishing Quest",
-                            Content = quest.Name.." - "..progress.."% complete"
-                        })
-                        if progress >= 100 then
-                            break
-                        end
-                    end
-
-                    -- Auto fishing OFF setelah quest selesai
-                    StopFishing()
-                    task.wait(1)
-
-                    -- Lanjut ke quest berikutnya
-                    GhostfinnConfig.CurrentQuestIndex += 1
-                    if GhostfinnConfig.CurrentQuestIndex > #GhostfinnConfig.QuestList then
-                        GhostfinnConfig.Active = false
-                        QuestParagraph:Set({
-                            Title = "All Quests Completed",
-                            Content = "✅ Ghostfinn Auto Finished!"
-                        })
+                    if progress >= 100 then
+                        StopFishing()
+                        TreasureQuestConfig.Active = false
                         break
                     end
                 end
             end)
+        else
+            StopFishing()
+        end
+    end
+})
+
+-- SISYPHUS QUEST
+local SisyphusQuestParagraph = TabGhostfinnQuest:CreateParagraph({
+    Title = "Sisyphus Quests",
+    Content = "Waiting to track Sisyphus quests..."
+})
+
+local SisyphusQuestList = {
+    {
+        Name = "Catch 3 Mythic fish",
+        Key = "CatchFish",
+        Value = 3,
+        Tier = 6,
+        Location = Locations.Sisyphus,
+        LocationName = "Sisyphus Statue"
+    },
+    {
+        Name = "Catch 1 SECRET fish",
+        Key = "CatchFish",
+        Value = 1,
+        Tier = 7,
+        Location = Locations.Sisyphus,
+        LocationName = "Sisyphus Statue"
+    }
+}
+
+TabGhostfinnQuest:CreateToggle({
+    Name = "Start Sisyphus Mission",
+    CurrentValue = false,
+    Flag = "StartSisyphusMission",
+    Callback = function(Value)
+        local CurrentIndex = 1
+        local Active = Value
+        if Value then
+            task.spawn(function()
+                while Active do
+                    local quest = SisyphusQuestList[CurrentIndex]
+                    if not quest then break end
+                    hrp.CFrame = quest.Location
+                    StartFishing()
+                    while Active do
+                        task.wait(5)
+                        local progress = GetQuestProgress(quest.Key)
+                        SisyphusQuestParagraph:Set({
+                            Title = "Sisyphus Quests",
+                            Content = quest.Name.." at "..quest.LocationName.." - "..progress.."% complete"
+                        })
+                        if progress >= 100 then
+                            StopFishing()
+                            CurrentIndex += 1
+                            if CurrentIndex > #SisyphusQuestList then
+                                Active = false
+                                break
+                            else
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            StopFishing()
         end
     end
 })
