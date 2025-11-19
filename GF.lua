@@ -22,12 +22,14 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- REMOTES
 local RemoteReferences = {}
 RemoteReferences.Net = RepStorage:WaitForChild("Packages")._Index["sleitnick_net@0.2.0"].net
+RemoteReferences.EquipRemote = RemoteReferences.Net:WaitForChild("RE/EquipToolFromHotbar")
+RemoteReferences.UnequipRemote = RemoteReferences.Net:WaitForChild("RE/UnequipToolFromHotbar")
 RemoteReferences.UpdateAutoFishing = RemoteReferences.Net:WaitForChild("RF/UpdateAutoFishingState")
-RemoteReferences.ChargeRod = RemoteReferences.Net:WaitForChild("RF/ChargeFishingRod")
-RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
-RemoteReferences.FishingCompleted = RemoteReferences.Net:WaitForChild("RE/FishingCompleted")
 RemoteReferences.SellRemote = RemoteReferences.Net:WaitForChild("RF/SellAllItems")
 RemoteReferences.RodPurchase = RemoteReferences.Net:WaitForChild("RF/PurchaseFishingRod")
+RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
+RemoteReferences.ChargeRod = RemoteReferences.Net:WaitForChild("RF/ChargeFishingRod")
+RemoteReferences.FishingCompleted = RemoteReferences.Net:WaitForChild("RE/FishingCompleted")
 
 -- LOCATIONS
 local Locations = {
@@ -40,6 +42,7 @@ local Locations = {
 local Config = {
     AutoFishing = false,
     AutoSell = false,
+    PerfectCatch = true,
 }
 local FishingActive = false
 
@@ -47,34 +50,47 @@ local FishingActive = false
 local function StartFishing()
     if FishingActive then return end
     FishingActive = true
+    Config.AutoFishing = true
 
+    -- AUTO EQUIP ROD
+    pcall(function()
+        RemoteReferences.EquipRemote:FireServer()
+    end)
+    task.wait(0.5)
+
+    -- ENABLE AUTO FISHING
+    pcall(function()
+        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
+    end)
+
+    -- PERFECT CATCH HOOK
+    if Config.PerfectCatch then
+        local mt = getrawmetatable(game)
+        if mt then
+            setreadonly(mt, false)
+            local oldNamecall = mt.__namecall
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if method == "InvokeServer" and self == RemoteReferences.StartMini and Config.AutoFishing then
+                    return oldNamecall(self, -1.233184814453125, 0.9945034885633273)
+                end
+                return oldNamecall(self, ...)
+            end)
+            setreadonly(mt, true)
+        end
+    end
+
+    -- LOOP UNTUK AUTO FISHING
     task.spawn(function()
         while Config.AutoFishing do
-            pcall(function()
-                -- 1️⃣ Enable Auto Fishing
-                local args1 = {true}
-                RemoteReferences.UpdateAutoFishing:InvokeServer(unpack(args1))
-
-                -- 2️⃣ Charge Fishing Rod
-                RemoteReferences.ChargeRod:InvokeServer()
-
-                -- 3️⃣ Start Mini Game
-                local args2 = {-0.5718746185302734, 0.5, 1763575694.689195}
-                RemoteReferences.StartMini:InvokeServer(unpack(args2))
-
-                -- 4️⃣ Complete Fishing
-                RemoteReferences.FishingCompleted:FireServer()
-            end)
-
-            task.wait(1) -- wait a second before next iteration
+            task.wait(1)
         end
 
-        -- Stop AutoFishing
+        -- STOP AUTO FISHING + UNEQUIP ROD
         pcall(function()
-            local args1 = {false}
-            RemoteReferences.UpdateAutoFishing:InvokeServer(unpack(args1))
+            RemoteReferences.UpdateAutoFishing:InvokeServer(false)
+            RemoteReferences.UnequipRemote:FireServer()
         end)
-
         FishingActive = false
     end)
 end
@@ -97,12 +113,10 @@ local function GetQuestProgress(questKey)
                 if gui and gui:FindFirstChild("Content") and gui.Content:FindFirstChild("Progress") then
                     local label = gui.Content.Progress:FindFirstChild("ProgressLabel")
                     if label and label:IsA("TextLabel") then
-                        -- Try percent first
                         local percent = string.match(label.Text, "([%d%.]+)%%")
                         if percent then
                             totalProgress = tonumber(percent) or totalProgress
                         else
-                            -- If text is like "75 / 300"
                             local current, goal = string.match(label.Text, "(%d+)%s*/%s*(%d+)")
                             if current and goal then
                                 totalProgress = math.floor((tonumber(current)/tonumber(goal))*100)
