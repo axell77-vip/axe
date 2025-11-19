@@ -29,11 +29,23 @@ RemoteReferences.SellRemote = RemoteReferences.Net:WaitForChild("RF/SellAllItems
 RemoteReferences.RodPurchase = RemoteReferences.Net:WaitForChild("RF/PurchaseFishingRod")
 RemoteReferences.StartMini = RemoteReferences.Net:WaitForChild("RF/RequestFishingMinigameStarted")
 
--- LOCATIONS
+-- LOCATIONS MANUAL (TAB TELEPORT)
 local Locations = {
     Volcano = CFrame.new(-546.500671, 16.2349777, 115.35006),
-    Treasure = CFrame.new(-3570.70264, -279.074188, -1599.13953),
-    Sisyphus = CFrame.new(-3737.87354, -135.073914, -888.212891),
+    Treasure = CFrame.new(-3570.70264, -279.074188, -1599.13953,
+        1, 4.67368437e-08, 9.49238721e-14,
+        -4.67368437e-08, 1, 7.08577161e-08,
+        -9.16122037e-14, -7.08577161e-08, 1),
+    Sisyphus = CFrame.new(-3737.87354, -135.073914, -888.212891,
+        1, 1.06662927e-08, 2.21165402e-14,
+        -1.06662927e-08, 1, 9.32448714e-08,
+        -2.11219626e-14, -9.32448714e-08, 1),
+}
+
+-- LOCATIONS QUEST (AUTO QUEST)
+local QuestLocations = {
+    TreasureQuest = Locations.Treasure,
+    SisyphusQuest = Locations.Sisyphus
 }
 
 -- CONFIG
@@ -50,18 +62,11 @@ local function StartFishing()
     FishingActive = true
     Config.AutoFishing = true
 
-    -- AUTO EQUIP ROD
-    pcall(function()
-        RemoteReferences.EquipRemote:FireServer()
-    end)
+    pcall(function() RemoteReferences.EquipRemote:FireServer() end)
     task.wait(0.5)
 
-    -- ENABLE AUTO FISHING
-    pcall(function()
-        RemoteReferences.UpdateAutoFishing:InvokeServer(true)
-    end)
+    pcall(function() RemoteReferences.UpdateAutoFishing:InvokeServer(true) end)
 
-    -- PERFECT CATCH HOOK
     if Config.PerfectCatch then
         local mt = getrawmetatable(game)
         if mt then
@@ -78,13 +83,8 @@ local function StartFishing()
         end
     end
 
-    -- LOOP UNTUK AUTO FISHING
     task.spawn(function()
-        while Config.AutoFishing do
-            task.wait(1)
-        end
-
-        -- STOP AUTO FISHING + UNEQUIP ROD
+        while Config.AutoFishing do task.wait(1) end
         pcall(function()
             RemoteReferences.UpdateAutoFishing:InvokeServer(false)
             RemoteReferences.UnequipRemote:FireServer()
@@ -105,11 +105,7 @@ TabFishing:CreateToggle({
     CurrentValue = false,
     Flag = "AutoFishing",
     Callback = function(Value)
-        if Value then
-            StartFishing()
-        else
-            StopFishing()
-        end
+        if Value then StartFishing() else StopFishing() end
     end
 })
 
@@ -122,9 +118,7 @@ TabFishing:CreateToggle({
         task.spawn(function()
             while Config.AutoSell do
                 task.wait(3)
-                pcall(function()
-                    RemoteReferences.SellRemote:InvokeServer()
-                end)
+                pcall(function() RemoteReferences.SellRemote:InvokeServer() end)
             end
         end)
     end
@@ -135,23 +129,11 @@ TabFishing:CreateButton({
     Callback = function()
         pcall(function()
             local RodId = 6
-            local success, response = pcall(function()
-                return RemoteReferences.RodPurchase:InvokeServer(RodId)
-            end)
+            local success, response = pcall(function() return RemoteReferences.RodPurchase:InvokeServer(RodId) end)
             if success then
-                Rayfield:Notify({
-                    Title = "✅ Rod Purchase",
-                    Content = "Steampunk Rod purchase sent!",
-                    Duration = 5,
-                    Image = 4483362458
-                })
+                Rayfield:Notify({Title="✅ Rod Purchase", Content="Steampunk Rod purchase sent!", Duration=5, Image=4483362458})
             else
-                Rayfield:Notify({
-                    Title = "❌ Rod Purchase Failed",
-                    Content = tostring(response),
-                    Duration = 5,
-                    Image = 4483362458
-                })
+                Rayfield:Notify({Title="❌ Rod Purchase Failed", Content=tostring(response), Duration=5, Image=4483362458})
             end
         end)
     end
@@ -160,130 +142,95 @@ TabFishing:CreateButton({
 --== TAB: TELEPORT ==--
 local TabTeleport = Window:CreateTab("Teleport", "map")
 
-TabTeleport:CreateButton({
-    Name = "Volcano",
-    Callback = function()
-        hrp.CFrame = Locations.Volcano
-    end
-})
-
-TabTeleport:CreateButton({
-    Name = "Treasure Room",
-    Callback = function()
-        hrp.CFrame = Locations.Treasure
-    end
-})
-
-TabTeleport:CreateButton({
-    Name = "Sisyphus Statue",
-    Callback = function()
-        hrp.CFrame = Locations.Sisyphus
-    end
-})
+TabTeleport:CreateButton({Name="Volcano", Callback=function() hrp.CFrame = Locations.Volcano end})
+TabTeleport:CreateButton({Name="Treasure Room", Callback=function() hrp.CFrame = Locations.Treasure end})
+TabTeleport:CreateButton({Name="Sisyphus Statue", Callback=function() hrp.CFrame = Locations.Sisyphus end})
 
 --== TAB: GHOSTFINN AUTO ==--
 local TabGhostfinn = Window:CreateTab("Ghostfinn Auto", "fish")
 
-local QuestParagraph = TabGhostfinn:CreateParagraph({
-    Title = "Quest Info",
-    Content = "Waiting to track quests..."
-})
+local QuestParagraph = TabGhostfinn:CreateParagraph({Title="Quest Info", Content="Waiting to track quests..."})
 
 local GhostfinnConfig = {
     Active = false,
     QuestList = {
-        {Name="Treasure Room Quest", Key="CatchRareTreasureRoom", Location=Locations.Treasure},
-        {Name="Sisyphus Mythic Quest", Key="3mythic", Location=Locations.Sisyphus},
-        {Name="Sisyphus Secret Quest", Key="1secret", Location=Locations.Sisyphus},
+        {
+            Name = "Catch 300 Rare/Epic fish in Treasure Room",
+            Key = "CatchRareTreasureRoom",
+            Location = QuestLocations.TreasureQuest
+        },
+        {
+            Name = "Catch 3 Mythic fish at Sisyphus Statue",
+            Key = "3mythic",
+            Location = QuestLocations.SisyphusQuest
+        },
+        {
+            Name = "Catch 1 SECRET fish at Sisyphus Statue",
+            Key = "1secret",
+            Location = QuestLocations.SisyphusQuest
+        }
     }
 }
-
-local function GetQuestProgressByKey(key)
-    local menu = WorkspaceService:FindFirstChild("!!! MENU RINGS")
-    if not menu then return 0 end
-    for _, inst in ipairs(menu:GetChildren()) do
-        if inst.Name:find("Tracker") and inst.Name:lower():find(key:lower()) then
-            local ok, label = pcall(function()
-                return inst.Board
-                    and inst.Board:FindFirstChild("Gui")
-                    and inst.Board.Gui:FindFirstChild("Content")
-                    and inst.Board.Gui.Content:FindFirstChild("Progress")
-                    and inst.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
-            end)
-            if ok and label and label:IsA("TextLabel") then
-                local pct = string.match(label.Text, "([%d%.]+)%%")
-                return tonumber(pct) or 0
-            end
-        end
-    end
-    return 0
-end
-
-local function SafeTeleport(cf)
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-    if typeof(cf) == "CFrame" then
-        hrp.CFrame = cf
-    end
-end
 
 TabGhostfinn:CreateToggle({
     Name = "Enable Ghostfinn Auto",
     CurrentValue = false,
     Flag = "GhostfinnAuto",
-    Callback = function(state)
-        GhostfinnConfig.Active = state
-        if state then
+    Callback = function(Value)
+        GhostfinnConfig.Active = Value
+        if Value then
             task.spawn(function()
-                local teleported = {}
-                while GhostfinnConfig.Active do
-                    local allDone = true
-                    local contentLines = {}
-                    for i, quest in ipairs(GhostfinnConfig.QuestList) do
-                        local progress = GetQuestProgressByKey(quest.Key)
-                        table.insert(contentLines, quest.Name.." - "..progress.."%")
+                local currentQuestIndex = 1
+                while GhostfinnConfig.Active and currentQuestIndex <= #GhostfinnConfig.QuestList do
+                    local quest = GhostfinnConfig.QuestList[currentQuestIndex]
 
-                        if progress < 100 then
-                            allDone = false
-                            -- teleport & start fishing jika belum teleport untuk quest ini
-                            if not teleported[i] then
-                                -- pastikan urutan: Sisyphus hanya setelah Treasure selesai
-                                if quest.Name:find("Sisyphus") and GetQuestProgressByKey("CatchRareTreasureRoom") < 100 then
-                                    break
-                                end
-                                SafeTeleport(quest.Location)
-                                teleported[i] = true
-                                if not Config.AutoFishing then
-                                    StartFishing()
-                                end
-                            end
+                    -- Update paragraph with all quests
+                    local statusText = ""
+                    for _, q in ipairs(GhostfinnConfig.QuestList) do
+                        local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS") and WorkspaceService["!!! MENU RINGS"]:FindFirstChild(q.Key)
+                        local progress = 0
+                        if tracker and tracker:FindFirstChild("Board") and tracker.Board:FindFirstChild("Gui") then
+                            local label = tracker.Board.Gui.Content.Progress.ProgressLabel
+                            if label then progress = tonumber(string.match(label.Text, "([%d%.]+)%%")) or 0 end
                         end
+                        statusText = statusText..q.Name.." - "..progress.."%\n"
+                    end
+                    QuestParagraph:Set({Title="Ghostfinn Quest Tracking", Content=statusText})
+
+                    -- Teleport ke quest location only if progress < 100
+                    local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS") and WorkspaceService["!!! MENU RINGS"]:FindFirstChild(quest.Key)
+                    local progress = 0
+                    if tracker and tracker:FindFirstChild("Board") and tracker.Board:FindFirstChild("Gui") then
+                        local label = tracker.Board.Gui.Content.Progress.ProgressLabel
+                        if label then progress = tonumber(string.match(label.Text, "([%d%.]+)%%")) or 0 end
                     end
 
-                    -- update paragraph real-time
-                    QuestParagraph:Set({
-                        Title = "Ghostfinn Quest Tracking",
-                        Content = table.concat(contentLines, "\n")
-                    })
-
-                    -- semua quest 100% → stop fishing saja
-                    if allDone then
-                        StopFishing()
-                        QuestParagraph:Set({
-                            Title = "Ghostfinn Auto",
-                            Content = "✅ All Quests Completed (Fishing stopped)"
-                        })
-                        break
+                    if progress < 100 then
+                        pcall(function() hrp.CFrame = quest.Location end)
+                        pcall(StartFishing)
+                        repeat task.wait(5)
+                            -- Refresh paragraph
+                            local statusText2 = ""
+                            for _, q in ipairs(GhostfinnConfig.QuestList) do
+                                local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS") and WorkspaceService["!!! MENU RINGS"]:FindFirstChild(q.Key)
+                                local progress = 0
+                                if tracker and tracker:FindFirstChild("Board") and tracker.Board:FindFirstChild("Gui") then
+                                    local label = tracker.Board.Gui.Content.Progress.ProgressLabel
+                                    if label then progress = tonumber(string.match(label.Text, "([%d%.]+)%%")) or 0 end
+                                end
+                                statusText2 = statusText2..q.Name.." - "..progress.."%\n"
+                            end
+                            QuestParagraph:Set({Title="Ghostfinn Quest Tracking", Content=statusText2})
+                        until progress >= 100
+                        pcall(StopFishing)
                     end
-                    task.wait(5)
+
+                    currentQuestIndex += 1
                 end
             end)
         else
-            StopFishing()
-            QuestParagraph:Set({
-                Title = "Ghostfinn Auto",
-                Content = "Stopped by user"
-            })
+            pcall(StopFishing)
+            QuestParagraph:Set({Title="Ghostfinn Auto", Content="Stopped by user"})
         end
     end
 })
