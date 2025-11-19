@@ -3,12 +3,12 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- WINDOW
 local Window = Rayfield:CreateWindow({
-    Name = "Axee | Unpublished",
-    Icon = 0,
-    LoadingTitle = "Axee Interface",
-    LoadingSubtitle = "Private Script",
-    ShowText = "Axee",
-    Theme = "Default"
+   Name = "Axee | Unpublished",
+   Icon = 0,
+   LoadingTitle = "Axee Interface",
+   LoadingSubtitle = "Private Script",
+   ShowText = "Axee",
+   Theme = "Default"
 })
 
 -- SERVICES
@@ -175,118 +175,142 @@ TabTeleport:CreateButton({
     end
 })
 
---== TAB: GHOSTFINN AUTO ==--
-local TabGhostfinn = Window:CreateTab("Ghostfinn Auto", "fish")
+--== TAB: GHOSTFINN QUEST ==--
+local TabGhostfinnQuest = Window:CreateTab("Ghostfinn Quest", "fish")
 
-local QuestParagraph = TabGhostfinn:CreateParagraph({
-    Title = "Quest Info",
-    Content = "Waiting to track quests..."
+-- TREASURE QUEST
+local TreasureQuestParagraph = TabGhostfinnQuest:CreateParagraph({
+    Title = "Treasure Quest",
+    Content = "Waiting to track Treasure quest..."
 })
 
--- Config teleport khusus quest
-local QuestLocations = {
-    TreasureQuest = CFrame.new(-3570.70264, -279.074188, -1599.13953),
-    SisyphusQuest = CFrame.new(-3737.87354, -135.073914, -888.212891)
-}
-
-local GhostfinnConfig = {
+local TreasureQuestConfig = {
     Active = false,
-    QuestList = {
-        {
-            Name = "Catch 300 Rare/Epic fish in the Treasure Room",
-            Key = "CatchRareTreasureRoom",
-            Value = 300,
-            TeleportLocation = QuestLocations.TreasureQuest
-        },
-        {
-            Name = "Catch 3 Mythic fish at Sisyphus Statue",
-            Key = "CatchFish",
-            Value = 3,
-            Tier = 6,
-            TeleportLocation = QuestLocations.SisyphusQuest
-        },
-        {
-            Name = "Catch 1 SECRET fish at Sisyphus Statue",
-            Key = "CatchFish",
-            Value = 1,
-            Tier = 7,
-            TeleportLocation = QuestLocations.SisyphusQuest
-        }
-    }
+    Name = "Catch 300 Rare/Epic fish",
+    Key = "CatchRareTreasureRoom",
+    Value = 300,
+    Location = Locations.Treasure,
+    LocationName = "Treasure Room"
 }
 
-local function GetQuestTracker(questName)
-    local menu = WorkspaceService:FindFirstChild("!!! MENU RINGS")
-    if not menu then return nil end
-    for _, instance in ipairs(menu:GetChildren()) do
-        if instance.Name:find("Tracker") and instance.Name:lower():find(questName:lower()) then
-            return instance
-        end
-    end
-    return nil
-end
-
-local function GetQuestProgress(questName)
-    local tracker = GetQuestTracker(questName)
-    if not tracker then return 0 end
-    local label = tracker:FindFirstChild("Board") and tracker.Board:FindFirstChild("Gui")
-        and tracker.Board.Gui:FindFirstChild("Content")
-        and tracker.Board.Gui.Content:FindFirstChild("Progress")
-        and tracker.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
-    if label and label:IsA("TextLabel") then
-        local percent = string.match(label.Text, "([%d%.]+)%%")
-        return tonumber(percent) or 0
-    end
-    return 0
-end
-
-TabGhostfinn:CreateToggle({
-    Name = "Enable Ghostfinn Auto",
+TabGhostfinnQuest:CreateToggle({
+    Name = "Start Treasure Mission",
     CurrentValue = false,
-    Flag = "GhostfinnAuto",
+    Flag = "StartTreasureMission",
     Callback = function(Value)
-        GhostfinnConfig.Active = Value
+        TreasureQuestConfig.Active = Value
         if Value then
-            StartFishing()
             task.spawn(function()
-                while GhostfinnConfig.Active do
-                    for _, quest in ipairs(GhostfinnConfig.QuestList) do
-                        local progress = GetQuestProgress(quest.Name)
-                        QuestParagraph:Set({
-                            Title = "Tracking Quest",
-                            Content = quest.Name.." - "..progress.."% complete"
-                        })
-                        if progress < 100 then
-                            hrp.CFrame = quest.TeleportLocation
-                            task.wait(1)
-                            while progress < 100 do
-                                progress = GetQuestProgress(quest.Name)
-                                QuestParagraph:Set({
-                                    Title = "Fishing Quest",
-                                    Content = quest.Name.." - "..progress.."% complete"
-                                })
-                                task.wait(5)
+                hrp.CFrame = TreasureQuestConfig.Location
+                StartFishing()
+                while TreasureQuestConfig.Active do
+                    task.wait(5)
+                    -- get quest progress
+                    local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS")
+                    local progress = 0
+                    if tracker then
+                        for _, t in ipairs(tracker:GetChildren()) do
+                            if t.Name:find("Tracker") and t.Name:lower():find(TreasureQuestConfig.Key:lower()) then
+                                local label = t:FindFirstChild("Board") and t.Board:FindFirstChild("Gui")
+                                    and t.Board.Gui:FindFirstChild("Content")
+                                    and t.Board.Gui.Content:FindFirstChild("Progress")
+                                    and t.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
+                                if label and label:IsA("TextLabel") then
+                                    local percent = string.match(label.Text, "([%d%.]+)%%")
+                                    progress = tonumber(percent) or 0
+                                end
                             end
                         end
                     end
-                    -- cek semua quest selesai
-                    local allComplete = true
-                    for _, quest in ipairs(GhostfinnConfig.QuestList) do
-                        if GetQuestProgress(quest.Name) < 100 then
-                            allComplete = false
-                            break
-                        end
-                    end
-                    if allComplete then
+                    TreasureQuestParagraph:Set({
+                        Title = "Treasure Quest",
+                        Content = TreasureQuestConfig.Name.." at "..TreasureQuestConfig.LocationName.." - "..progress.."% complete"
+                    })
+                    if progress >= 100 then
                         StopFishing()
-                        GhostfinnConfig.Active = false
-                        QuestParagraph:Set({
-                            Title = "All Quests Completed",
-                            Content = "✅ Ghostfinn Auto Finished!"
-                        })
+                        TreasureQuestConfig.Active = false
                         break
                     end
-                    task.wait(2)
+                end
+            end)
+        else
+            StopFishing()
+        end
+    end
+})
+
+-- SISYPHUS QUEST
+local SisyphusQuestParagraph = TabGhostfinnQuest:CreateParagraph({
+    Title = "Sisyphus Quests",
+    Content = "Waiting to track Sisyphus quests..."
+})
+
+local SisyphusQuestList = {
+    {
+        Name = "Catch 3 Mythic fish",
+        Key = "CatchFish",
+        Value = 3,
+        Tier = 6,
+        Location = Locations.Sisyphus,
+        LocationName = "Sisyphus Statue"
+    },
+    {
+        Name = "Catch 1 SECRET fish",
+        Key = "CatchFish",
+        Value = 1,
+        Tier = 7,
+        Location = Locations.Sisyphus,
+        LocationName = "Sisyphus Statue"
+    }
+}
+
+TabGhostfinnQuest:CreateToggle({
+    Name = "Start Sisyphus Mission",
+    CurrentValue = false,
+    Flag = "StartSisyphusMission",
+    Callback = function(Value)
+        local CurrentIndex = 1
+        local Active = Value
+        if Value then
+            task.spawn(function()
+                while Active do
+                    local quest = SisyphusQuestList[CurrentIndex]
+                    if not quest then break end
+                    hrp.CFrame = quest.Location
+                    StartFishing()
+                    while Active do
+                        task.wait(5)
+                        local tracker = WorkspaceService:FindFirstChild("!!! MENU RINGS")
+                        local progress = 0
+                        if tracker then
+                            for _, t in ipairs(tracker:GetChildren()) do
+                                if t.Name:find("Tracker") and t.Name:lower():find(quest.Key:lower()) then
+                                    local label = t:FindFirstChild("Board") and t.Board:FindFirstChild("Gui")
+                                        and t.Board.Gui:FindFirstChild("Content")
+                                        and t.Board.Gui.Content:FindFirstChild("Progress")
+                                        and t.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
+                                    if label and label:IsA("TextLabel") then
+                                        local percent = string.match(label.Text, "([%d%.]+)%%")
+                                        progress = tonumber(percent) or 0
+                                    end
+                                end
+                            end
+                        end
+                        SisyphusQuestParagraph:Set({
+                            Title = "Sisyphus Quests",
+                            Content = quest.Name.." at "..quest.LocationName.." - "..progress.."% complete"
+                        })
+                        if progress >= 100 then
+                            StopFishing()
+                            CurrentIndex += 1
+                            if CurrentIndex > #SisyphusQuestList then
+                                Active = false
+                                break
+                            else
+                                break
+                            end
+                        end
+                    end
                 end
             end)
         else
