@@ -16,22 +16,8 @@ local Players = game:GetService("Players")
 local RepStorage = game:GetService("ReplicatedStorage")
 local WorkspaceService = game:GetService("Workspace")
 local player = Players.LocalPlayer
-
--- SAFE HRP FUNCTION
-local function GetHRP()
-    local char = player.Character or player.CharacterAdded:Wait()
-    return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
-end
-
--- SAFE TELEPORT FUNCTION
-local function SafeTeleport(cf)
-    local root = GetHRP()
-    if typeof(cf) == "CFrame" then
-        root.CFrame = cf
-    else
-        warn("Invalid CFrame for teleport.")
-    end
-end
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- REMOTES
 local RemoteReferences = {}
@@ -92,11 +78,13 @@ local function StartFishing()
         end
     end
 
-    -- AUTO FISHING LOOP
+    -- LOOP UNTUK AUTO FISHING
     task.spawn(function()
         while Config.AutoFishing do
             task.wait(1)
         end
+
+        -- STOP AUTO FISHING + UNEQUIP ROD
         pcall(function()
             RemoteReferences.UpdateAutoFishing:InvokeServer(false)
             RemoteReferences.UnequipRemote:FireServer()
@@ -175,21 +163,21 @@ local TabTeleport = Window:CreateTab("Teleport", "map")
 TabTeleport:CreateButton({
     Name = "Volcano",
     Callback = function()
-        SafeTeleport(Locations.Volcano)
+        hrp.CFrame = Locations.Volcano
     end
 })
 
 TabTeleport:CreateButton({
     Name = "Treasure Room",
     Callback = function()
-        SafeTeleport(Locations.Treasure)
+        hrp.CFrame = Locations.Treasure
     end
 })
 
 TabTeleport:CreateButton({
     Name = "Sisyphus Statue",
     Callback = function()
-        SafeTeleport(Locations.Sisyphus)
+        hrp.CFrame = Locations.Sisyphus
     end
 })
 
@@ -201,107 +189,92 @@ local QuestParagraph = TabGhostfinn:CreateParagraph({
     Content = "Waiting to track quests..."
 })
 
--- GHOSTFINN CONFIG: semua quest digabung 1 paragraph
 local GhostfinnConfig = {
     Active = false,
     QuestList = {
-        {
-            Name = "Treasure Room Quest",
-            Key = "CatchRareTreasureRoom",
-            Location = Locations.Treasure
-        },
-        {
-            Name = "Sisyphus Mythic Quest",
-            Key = "3mythic",
-            Location = Locations.Sisyphus
-        },
-        {
-            Name = "Sisyphus Secret Quest",
-            Key = "1secret",
-            Location = Locations.Sisyphus
-        }
+        {Name="Treasure Room Quest", Key="CatchRareTreasureRoom", Location=Locations.Treasure},
+        {Name="Sisyphus Mythic Quest", Key="3mythic", Location=Locations.Sisyphus},
+        {Name="Sisyphus Secret Quest", Key="1secret", Location=Locations.Sisyphus},
     }
 }
 
--- helper tracker/progress
-local function GetQuestTrackerByKey(key)
+local function GetQuestProgressByKey(key)
     local menu = WorkspaceService:FindFirstChild("!!! MENU RINGS")
-    if not menu then return nil end
+    if not menu then return 0 end
     for _, inst in ipairs(menu:GetChildren()) do
         if inst.Name:find("Tracker") and inst.Name:lower():find(key:lower()) then
-            return inst
+            local ok, label = pcall(function()
+                return inst.Board
+                    and inst.Board:FindFirstChild("Gui")
+                    and inst.Board.Gui:FindFirstChild("Content")
+                    and inst.Board.Gui.Content:FindFirstChild("Progress")
+                    and inst.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
+            end)
+            if ok and label and label:IsA("TextLabel") then
+                local pct = string.match(label.Text, "([%d%.]+)%%")
+                return tonumber(pct) or 0
+            end
         end
     end
-    return nil
+    return 0
 end
 
-local function GetQuestProgressByKey(key)
-    local tracker = GetQuestTrackerByKey(key)
-    if not tracker then return 0 end
-    local ok, label = pcall(function()
-        return tracker.Board
-            and tracker.Board:FindFirstChild("Gui")
-            and tracker.Board.Gui:FindFirstChild("Content")
-            and tracker.Board.Gui.Content:FindFirstChild("Progress")
-            and tracker.Board.Gui.Content.Progress:FindFirstChild("ProgressLabel")
-    end)
-    if not ok or not label or not label:IsA("TextLabel") then return 0 end
-    local pct = string.match(label.Text, "([%d%.]+)%%")
-    return tonumber(pct) or 0
+local function SafeTeleport(cf)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    if typeof(cf) == "CFrame" then
+        hrp.CFrame = cf
+    end
 end
 
--- CREATE 1 TOGGLE 1 PARAGRAPH
 TabGhostfinn:CreateToggle({
     Name = "Enable Ghostfinn Auto",
     CurrentValue = false,
     Flag = "GhostfinnAuto",
-    Callback = function(Value)
-        GhostfinnConfig.Active = Value
-        if Value then
+    Callback = function(state)
+        GhostfinnConfig.Active = state
+        if state then
             task.spawn(function()
                 local teleported = {}
                 while GhostfinnConfig.Active do
-                    local contentLines = {}
                     local allDone = true
-                    for _, quest in ipairs(GhostfinnConfig.QuestList) do
+                    local contentLines = {}
+                    for i, quest in ipairs(GhostfinnConfig.QuestList) do
                         local progress = GetQuestProgressByKey(quest.Key)
-                        table.insert(contentLines, quest.Name .. " - " .. progress .. "%")
+                        table.insert(contentLines, quest.Name.." - "..progress.."%")
+
                         if progress < 100 then
                             allDone = false
-                            -- teleport & start fishing if progress > 0 and not teleported yet
-                            if progress > 0 and not teleported[quest.Key] then
+                            -- teleport & start fishing jika belum teleport untuk quest ini
+                            if not teleported[i] then
+                                -- pastikan urutan: Sisyphus hanya setelah Treasure selesai
+                                if quest.Name:find("Sisyphus") and GetQuestProgressByKey("CatchRareTreasureRoom") < 100 then
+                                    break
+                                end
                                 SafeTeleport(quest.Location)
-                                teleported[quest.Key] = true
-                                -- equip rod & start fishing
-                                pcall(function()
-                                    if RemoteReferences.EquipRemote then
-                                        RemoteReferences.EquipRemote:FireServer()
-                                    end
-                                    task.wait(0.5)
+                                teleported[i] = true
+                                if not Config.AutoFishing then
                                     StartFishing()
-                                end)
+                                end
                             end
                         end
                     end
 
-                    -- update single paragraph
+                    -- update paragraph real-time
                     QuestParagraph:Set({
                         Title = "Ghostfinn Quest Tracking",
                         Content = table.concat(contentLines, "\n")
                     })
 
-                    -- stop fishing jika semua done
+                    -- semua quest 100% → stop fishing saja
                     if allDone then
                         StopFishing()
-                        GhostfinnConfig.Active = false
-                        Rayfield:Notify({
+                        QuestParagraph:Set({
                             Title = "Ghostfinn Auto",
-                            Content = "✅ All Quests Completed",
-                            Duration = 5
+                            Content = "✅ All Quests Completed (Fishing stopped)"
                         })
                         break
                     end
-
                     task.wait(5)
                 end
             end)
